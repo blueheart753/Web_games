@@ -5,7 +5,8 @@ const Engine = Matter.Engine,
   Runner = Matter.Runner,
   Bodies = Matter.Bodies,
   World = Matter.World,
-  Body = Matter.Body;
+  Body = Matter.Body,
+  Events = Matter.Events;
 
 // 엔진 선언
 const engine = Engine.create();
@@ -39,6 +40,8 @@ const rightWall = Bodies.rectangle(605, 395, 30, 790, {
 });
 
 const topLine = Bodies.rectangle(310, 150, 620, 2, {
+  // 이벤트 처리를 위해 이름을 지정
+  name: 'deadLine',
   isStatic: true,
   isSensor: true, // 충돌은 감지하나 물리엔진은 적용 X
   render: { fillStyle: '#E6B143' },
@@ -89,16 +92,18 @@ window.onkeydown = e => {
   }
   switch (e.code) {
     case 'KeyA':
-      Body.setPosition(currentBody, {
-        x: currentBody.position.x - 10,
-        y: currentBody.position.y,
-      });
+      if (currentBody.position.x - currentFruit.radius > 30)
+        Body.setPosition(currentBody, {
+          x: currentBody.position.x - 10,
+          y: currentBody.position.y,
+        });
       break;
     case 'KeyD':
-      Body.setPosition(currentBody, {
-        x: currentBody.position.x + 10,
-        y: currentBody.position.y,
-      });
+      if (currentBody.position.x + currentFruit.radius < 580)
+        Body.setPosition(currentBody, {
+          x: currentBody.position.x + 10,
+          y: currentBody.position.y,
+        });
       break;
     case 'KeyS':
       currentBody.isSleeping = false;
@@ -112,5 +117,37 @@ window.onkeydown = e => {
       break;
   }
 };
+
+Events.on(engine, 'collisionStart', e => {
+  // 콜리전 이벤트 발생시 생기는 모든 오브젝트를 비교
+  e.pairs.forEach(collision => {
+    if (collision.bodyA.index == collision.bodyB.index) {
+      // 기존 과일의 index를 저장
+      const index = collision.bodyA.index;
+      // 충돌이 일어나는 같은 과일 제거
+      World.remove(world, [collision.bodyA, collision.bodyB]);
+      const newFruit = FRUITS[index + 1];
+      const newBody = Bodies.circle(
+        // 부딪친 위치의 x,y 값
+        collision.collision.supports[0].x,
+        collision.collision.supports[0].y,
+        newFruit.radius,
+        {
+          //과일 인덱스 저장
+          index: index + 1,
+          render: { sprite: { texture: `${newFruit.name}.png` } },
+        },
+      );
+      World.add(world, newBody);
+    }
+    if (
+      !disableAction &&
+      (collision.bodyA.name == 'deadLine' || collision.bodyB.name == 'deadLine')
+    ) {
+      alert('Game Over!');
+      disableAction = true;
+    }
+  });
+});
 
 addFruit();
